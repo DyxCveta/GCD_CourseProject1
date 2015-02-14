@@ -1,0 +1,137 @@
+---
+title: "CodeBook"
+output:
+  html_document:
+    keep_md: yes
+---
+
+## Download archive with data 
+
+First of all we need to check, is folder "UCI HAR Dataset" with all data exists or not. If there is no such folder in active directory, then download .zip-archive and unpack it.
+
+```{r}
+# directory name with all data
+filename = "UCI HAR Dataset"
+# if directory with data doesnt exist, download archive and unzip it
+if(!(filename %in% dir())){
+    download.file(
+        "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip", 
+        destfile = paste(filename,".zip",sep = ""), 
+        method = "curl"
+    )
+    unzip(filename)
+}
+```
+
+## Load data
+
+Now we can load training and test data to datasets. Also we will load activity and subject data for each dataset. When activity and subject data will be connected to training and test datasets.
+
+1.  Load training.set from "train/X_train.txt" table.
+1.  Load training.activity from "train/y_train.txt" table.
+1.  Load training.subject from "train/subject_train.txt" table.
+1.  cbind(training.subject, training.activity, training.set) to training.set.
+1.  Load test.set from "test/X_test.txt" table.
+1.  Load test.activity from "test/y_test.txt" table.
+1.  Load test.subject from "test/subject_test.txt" table.
+1.  cbind(test.subject, test.activity, test.set) to test.set.
+
+```{r}
+# load all training data (dataset, activity and subjects)
+training.set <- read.table(
+    file = paste(filename, "/train/X_train.txt", sep=""), header = F
+)
+training.activity <- read.table(
+    file = paste(filename, "/train/y_train.txt", sep=""), header = F
+)
+training.subject <- read.table(
+    file = paste(filename, "/train/subject_train.txt", sep=""), header = F
+)
+# connect activity and subject to dataset
+# V1, V2, ... => subject, activity, V1, V2, ...
+training.set <- cbind(training.subject, training.activity, training.set)
+    
+
+# load all test data (dataset, activity and subjects)
+test.set <- read.table(
+    file = paste(filename, "/test/X_test.txt", sep=""), header = F
+)
+test.activity <- read.table(
+    file = paste(filename, "/test/y_test.txt", sep=""), header = F
+)
+test.subject <- read.table(
+    file = paste(filename, "/test/subject_test.txt", sep=""), header = F
+)
+# connect activity and subject to dataset
+# V1, V2, ... => subject, activity, V1, V2, ...
+test.set <- cbind(test.subject, test.activity, test.set)
+
+```
+
+## Create new dataset
+
+Next step is to connect training and test datasets to one big "new.set" dataset. Also, we are loading column names from "features.txt", connect to them "subject" and "activity" column names and put all this to new.set column names.
+
+```{r}
+# create new dataset from training and test datasets
+new.set <- rbind(training.set, test.set)
+
+# load column names from features.txt
+features.set <- read.table(
+    file = paste(filename, "/features.txt", sep=""), header = F,
+    stringsAsFactors = F
+)
+features.set <- features.set[,2]
+# connect "subject" and "activity" as first two column names
+features.set <- c("subject", "activity", features.set)
+
+# set new names to dataset
+names(new.set) <- features.set
+
+```
+
+## Select "mean" and "std" columns
+
+After creating new.set we need to select columns:
+
+1.  "subject" and "activity".
+1.  That contains "mean()" or "std()".
+
+Also "subject", "activity" will be converted to factor variables.
+
+```{r}
+# select only columns where names are "subject", "activity" or contains "mean()" or "std()"
+new.set <- new.set[
+    names(new.set)=="subject" |
+    names(new.set)=="activity" |
+    grepl(names(new.set), pattern = "mean\\(\\)") | 
+    grepl(names(new.set), pattern = "std\\(\\)")
+]
+
+# factorize "activity" and "subject" columns
+new.set[["activity"]] <- factor( new.set[["activity"]] )
+new.set[["subject"]] <- factor( new.set[["subject"]] )
+```
+
+## Create tidy dataset
+
+Last step: create tidy dataset with "aggregate" function and save it to .Rdata (as variable) and to .txt (as table).
+
+```{r}
+# calculate mean values group by (activity, subject)
+tidy.set <- aggregate(. ~ activity + subject, data=new.set, FUN=mean)
+
+# save dataset to .Rdata and create table to .txt
+save(list = c("new.set"), file = "tidy.set.Rdata")
+write.table(x = tidy.set, file="tidy.set.txt", row.names = F)
+
+
+```
+
+## Tidy dataset
+
+According project description: "The output should be the tidy data set you submitted for part 1." So, here is tidy.set output:
+
+```{r}
+tidy.set
+```
